@@ -8,40 +8,98 @@
 @if (Ulogovan)
 {
 	<EditForm Model="trenutnaPoruka" OnSubmit="Posalji">
-		<InputText @bind-Value="trenutnaPoruka.Sadrzaj"/>
+		<InputText @bind-Value="trenutnaPoruka.Sadrzaj" />
 		<button type="submit">Posalji</button>
 	</EditForm>
-}else
+}
+else
 {
-	<EditForm Model="trenutniKorisnik">
-		<FluentValidationValidator />
-		<p><label>Username: </label><InputText @bind-Value="trenutniKorisnik.Username" /></p>
-		<p><label>Password: </label><InputText @bind-Value="trenutniKorisnik.Password" /></p>
-		<p><label>E-mail: </label><InputText @bind-Value="trenutniKorisnik.Email" /></p>
-		<button type="submit">Registruj se!</button>
-		<ValidationSummary />
-	</EditForm>
+	<button @onclick="Toggle">
+		@if (LogIn)
+		{
+			<p>Registracija</p>
+		}
+		else
+		{
+			<p>LogIn</p>
+		}
+	</button>
+
+	@if (LogIn)
+	{
+		@PorukaOdServera
+		<EditForm Model="trenutniKorisnik" OnValidSubmit="UlogujKorisnika">
+			<FluentValidationValidator />
+			<p><label>Username: </label><InputText @bind-Value="trenutniKorisnik.Username" /></p>
+			<p><label>Password: </label><InputText @bind-Value="trenutniKorisnik.Password" /></p>
+			<button type="submit">Uloguj se!</button>
+			<ValidationSummary />
+		</EditForm>
+	}
+	else
+	{
+		@PorukaOdServera
+		<EditForm Model="trenutniKorisnik" OnValidSubmit="PosaljiKorisnika">
+			<FluentValidationValidator />
+			<p><label>Username: </label><InputText @bind-Value="trenutniKorisnik.Username" /></p>
+			<p><label>Password: </label><InputText @bind-Value="trenutniKorisnik.Password" /></p>
+			<p><label>E-mail: </label><InputText @bind-Value="trenutniKorisnik.Email" /></p>
+			<button type="submit">Registruj se!</button>
+			<ValidationSummary />
+		</EditForm>
+	}
 }
 
 <button @onclick="SignalRTest">Test</button>
 
-@code 
+@code
 {
 	public HubConnection HC;
 	public Poruka trenutnaPoruka = new Poruka();
 	public Korisnik trenutniKorisnik = new Korisnik();
 	public bool Ulogovan;
+	public bool LogIn;
+	public string PorukaOdServera;
 
 	protected override async Task OnInitializedAsync()
 	{
 		HC = new HubConnectionBuilder().WithUrl(NM.ToAbsoluteUri("ch")).Build();
-		HC.On<Poruka>("PrimiPoruku", (x) => 
-						{
-							Console.WriteLine(x.Sadrzaj);
-						});
+		HC.On<Poruka>("PrimiPoruku", (x) =>
+		{
+			if (Ulogovan)
+				Console.WriteLine(x.Sadrzaj);
+		});
+		HC.On<string>("ServerPoruka", (s) =>
+		{
+			PorukaOdServera = s;
+			StateHasChanged();
+		});
+		HC.On<Korisnik>("DobarKorisnik", (k) =>
+		{
+			trenutniKorisnik = k;
+			Ulogovan = true;
+			StateHasChanged();
+		});
 		await HC.StartAsync();
 	}
 
+	public void Toggle()
+	{
+		LogIn = !LogIn;
+		trenutniKorisnik = new Korisnik();
+		StateHasChanged();
+	}
+
+	public void UlogujKorisnika()
+	{
+		HC.SendAsync("Uloguj", trenutniKorisnik);
+	}
+
+	public void PosaljiKorisnika()
+	{
+		HC.SendAsync("KorisnikKaServeru", trenutniKorisnik);
+		trenutniKorisnik = new Korisnik();
+	}
 
 	public void SignalRTest()
 	{

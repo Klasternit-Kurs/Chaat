@@ -13,6 +13,8 @@ namespace Chaat.Server
 		public Startup(IConfiguration configuration)
 		{
 			Configuration = configuration;
+			using (DB baza = new DB())
+				baza.Database.EnsureCreated();
 		}
 
 		public IConfiguration Configuration { get; }
