@@ -1,0 +1,56 @@
+﻿@page "/chat"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Chaat.Shared
+@using Blazored.FluentValidation
+@inject NavigationManager NM
+
+<h3>Chat</h3>
+@if (Ulogovan)
+{
+	<EditForm Model="trenutnaPoruka" OnSubmit="Posalji">
+		<InputText @bind-Value="trenutnaPoruka.Sadrzaj"/>
+		<button type="submit">Posalji</button>
+	</EditForm>
+}else
+{
+	<EditForm Model="trenutniKorisnik">
+		<FluentValidationValidator />
+		<p><label>Username: </label><InputText @bind-Value="trenutniKorisnik.Username" /></p>
+		<p><label>Password: </label><InputText @bind-Value="trenutniKorisnik.Password" /></p>
+		<p><label>E-mail: </label><InputText @bind-Value="trenutniKorisnik.Email" /></p>
+		<button type="submit">Registruj se!</button>
+		<ValidationSummary />
+	</EditForm>
+}
+
+<button @onclick="SignalRTest">Test</button>
+
+@code 
+{
+	public HubConnection HC;
+	public Poruka trenutnaPoruka = new Poruka();
+	public Korisnik trenutniKorisnik = new Korisnik();
+	public bool Ulogovan;
+
+	protected override async Task OnInitializedAsync()
+	{
+		HC = new HubConnectionBuilder().WithUrl(NM.ToAbsoluteUri("ch")).Build();
+		HC.On<Poruka>("PrimiPoruku", (x) => 
+						{
+							Console.WriteLine(x.Sadrzaj);
+						});
+		await HC.StartAsync();
+	}
+
+
+	public void SignalRTest()
+	{
+		HC.SendAsync("Test", "Neka Poruka");
+	}
+
+	public void Posalji()
+	{
+		HC.SendAsync("KaServeru", trenutnaPoruka);
+		trenutnaPoruka = new Poruka();
+	}
+}
